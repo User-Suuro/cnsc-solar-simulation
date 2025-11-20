@@ -1,4 +1,12 @@
-# Project Setup Guide
+# Submitted by:
+
+Adlawan, Levnicolayevich  
+Cruz, Gabriel R. de la  
+Cruzana, Jonelle  
+Galvez, Godwin Reigh  
+Guevarra, Joshua S.  
+Ponciano, Divine Mae  
+Tejares, Ajaniel
 
 ## Setup
 
@@ -30,3 +38,5 @@ pip install -r requirements.txt
 ```bash
 python main.py
 ```
+
+See the project in: http://127.0.0.1:5000
