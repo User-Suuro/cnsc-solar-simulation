@@ -1,4 +1,4 @@
-# Submitted by:
+## Submitted by:
 
 Adlawan, Levnicolayevich  
 Cruz, Gabriel R. de la  
@@ -33,7 +33,7 @@ Choose the interpreter located at:
 pip install -r requirements.txt
 ```
 
-## Run the Application
+### Run the Application
 
 ```bash
 python main.py
