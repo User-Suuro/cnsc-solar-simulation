@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Energy Simulation</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Energy Simulation</h1>
+
+    <div class="card">
+        <form method="POST">
+            <div>
+                <label>Panel (kW)</label>
+                <input name="panel_kw" type="number" step="0.1" value="{{ panel_kw }}">
+            </div>
+            <div>
+                <label>Battery (kWh)</label>
+                <input name="battery_kwh" type="number" step="1" value="{{ battery_kwh }}">
+            </div>
+            <div>
+                <label>Inverter (kW)</label>
+                <input name="inverter_kw" type="number" step="0.1" value="{{ inverter_kw }}">
+            </div>
+            <div>
+                <label>Start Year</label>
+                <select name="year_start">
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if y==year_start %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div>
+                <label>End Year</label>
+                <select name="year_end">
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if y==year_end %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div style="margin-top:12px;">
+                <button type="submit">Simulate</button>
+            </div>
+        </form>
+
+        <p>System Health: <b>{{ health }}%</b></p>
+    </div>
+
+    <!-- SINGLE YEAR -->
+    {% if single_monthly_table %}
+    <div class="card">
+        <h2>Monthly Data ({{ year_start }})</h2>
+
+        <table>
+            <tr>
+                {% for k in single_monthly_table[0].keys() %}
+                <th>{{ k }}</th>
+                {% endfor %}
+            </tr>
+            {% for row in single_monthly_table %}
+            <tr>
+                {% for v in row.values() %}
+                <td>{{ v }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+
+        <h3>Annual Summary</h3>
+        <table>
+            <tr>
+                <th>Total Solar (kWh)</th>
+                <th>Total Solar (100% Health)</th>
+                <th>Total Degradation Loss</th>
+                <th>Total Consumption (kWh)</th>
+                <th>Total Met (kWh)</th>
+                <th>Total Unmet (kWh)</th>
+                <th>Final Health (%)</th>
+            </tr>
+            <tr>
+                <td>{{ single_summary.TotalSolar_kWh }}</td>
+                <td>{{ single_summary.TotalSolar_100pct_kWh }}</td>
+                <td>{{ single_summary.TotalDegradationLoss_kWh }}</td>
+                <td>{{ single_summary.TotalConsumption_kWh }}</td>
+                <td>{{ single_summary.TotalMet_kWh }}</td>
+                <td>{{ single_summary.TotalUnmet_kWh }}</td>
+                <td>{{ single_summary.FinalHealth }}</td>
+            </tr>
+        </table>
+
+        <!-- Monthly Degradation Analysis -->
+        {% if single_deg_table %}
+        <h3>Monthly Degradation Analysis</h3>
+        <table>
+            <tr>
+                <th>Month</th>
+                <th>SolarGen (100%) kWh</th>
+                <th>SolarGen Actual kWh</th>
+                <th>Degradation Loss kWh</th>
+                <th>Health (%)</th>
+            </tr>
+            {% for row in single_deg_table %}
+            <tr>
+                <td>{{ row.Month }}</td>
+                <td>{{ row.SolarGen_100pct_kWh }}</td>
+                <td>{{ row.SolarGen_actual_kWh }}</td>
+                <td>{{ row.DegradationLoss_kWh }}</td>
+                <td>{{ row.Health_pct }}</td>
+            </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+
+        {% if bar_url %}
+        <h3>Monthly Bar Chart</h3>
+        <img src="{{ url_for('serve_output', filename=bar_url) }}" class="plot">
+        {% endif %}
+
+        {% if pie_url %}
+        <h3>Annual Met vs Unmet</h3>
+        <img src="{{ url_for('serve_output', filename=pie_url) }}" class="plot" width="400">
+        {% endif %}
+
+        {% if excel_url %}
+        <a href="{{ url_for('download_file', filename=excel_url) }}">Download Excel</a>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- MULTI-YEAR -->
+    {% if multi_summary_table %}
+    <div class="card">
+        <h2>Yearly Summary ({{ year_start }} - {{ year_end }})</h2>
+
+        <table>
+            <tr>
+                {% for k in multi_summary_table[0].keys() %}
+                <th>{{ k }}</th>
+                {% endfor %}
+            </tr>
+            {% for row in multi_summary_table %}
+            <tr>
+                {% for v in row.values() %}
+                <td>{{ v }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+
+        <!-- Multi-Year Degradation Summary -->
+        {% if multi_deg_table %}
+        <h3>Yearly Degradation Analysis</h3>
+        <table>
+            <tr>
+                {% for k in multi_deg_table[0].keys() %}
+                <th>{{ k }}</th>
+                {% endfor %}
+            </tr>
+            {% for row in multi_deg_table %}
+            <tr>
+                {% for v in row.values() %}
+                <td>{{ v }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+        {% endif %}
+
+        {% if multi_deg_trend_url %}
+        <h3>Degradation Trend</h3>
+        <img src="{{ url_for('serve_output', filename=multi_deg_trend_url) }}" class="plot">
+        {% endif %}
+
+        {% if multi_line_url %}
+        <h3>Line Chart: Total Consumption / Met / Unmet</h3>
+        <img src="{{ url_for('serve_output', filename=multi_line_url) }}" class="plot">
+        {% endif %}
+
+        {% if multi_bar_url %}
+        <h3>Bar Chart: Solar vs Consumption per Year</h3>
+        <img src="{{ url_for('serve_output', filename=multi_bar_url) }}" class="plot">
+        {% endif %}
+
+        {% if multi_pie_url %}
+        <h3>Pie Chart: Total Met vs Unmet Energy</h3>
+        <img src="{{ url_for('serve_output', filename=multi_pie_url) }}" class="plot" width="400">
+        {% endif %}
+
+        {% if multi_excel_url %}
+        <a href="{{ url_for('download_file', filename=multi_excel_url) }}">Download Multi-Year Excel</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</body>
+</html>
