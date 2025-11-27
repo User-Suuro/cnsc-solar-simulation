@@ -5,47 +5,55 @@
     <title>Energy Simulation</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
     <h1>Energy Simulation</h1>
 
-    <div class="card">
-        <form method="POST">
-            <div>
-                <label>Panel (kW)</label>
-                <input name="panel_kw" type="number" step="0.1" value="{{ panel_kw }}">
-            </div>
-            <div>
-                <label>Battery (kWh)</label>
-                <input name="battery_kwh" type="number" step="1" value="{{ battery_kwh }}">
-            </div>
-            <div>
-                <label>Inverter (kW)</label>
-                <input name="inverter_kw" type="number" step="0.1" value="{{ inverter_kw }}">
-            </div>
-            <div>
-                <label>Start Year</label>
-                <select name="year_start">
-                    {% for y in years %}
-                    <option value="{{ y }}" {% if y==year_start %}selected{% endif %}>{{ y }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div>
-                <label>End Year</label>
-                <select name="year_end">
-                    {% for y in years %}
-                    <option value="{{ y }}" {% if y==year_end %}selected{% endif %}>{{ y }}</option>
-                    {% endfor %}
-                </select>
-            </div>
-
-            <div style="margin-top:12px;">
-                <button type="submit">Simulate</button>
-            </div>
-        </form>
-
-        <p>System Health: <b>{{ health }}%</b></p>
+    <div class="tabs">
+        <a class="tab {% if active_tab == 'solar' %}active{% endif %}" href="{{ url_for('index') }}?keep=1">With Solar</a>
+        <a class="tab {% if active_tab == 'nosolar' %}active{% endif %}" href="{{ url_for('nosolar') }}">Without Solar</a>
     </div>
+
+
+        <div class="card">
+            <form method="POST">
+                <div>
+                    <label>Panel (kW)</label>
+                    <input name="panel_kw" type="number" step="0.1" value="{{ form_data.panel_kw }}">
+                </div>
+                <div>
+                    <label>Battery (kWh)</label>
+                    <input name="battery_kwh" type="number" step="1" value="{{ form_data.battery_kwh }}">
+                </div>
+                <div>
+                    <label>Inverter (kW)</label>
+                    <input name="inverter_kw" type="number" step="0.1" value="{{ form_data.inverter_kw }}">
+                </div>
+                <div>
+                    <label>Start Year</label>
+                    <select name="year_start">
+                        {% for y in years %}
+                        <option value="{{ y }}" {% if y==year_start %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>End Year</label>
+                    <select name="year_end">
+                        {% for y in years %}
+                        <option value="{{ y }}" {% if y==year_end %}selected{% endif %}>{{ y }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div style="margin-top:12px;">
+                    <button type="submit">Simulate</button>
+                </div>
+            </form>
+
+            <p>System Health: <b>{{ health }}%</b></p>
+        </div>
+
 
     <!-- SINGLE YEAR -->
     {% if single_monthly_table %}
@@ -191,6 +199,50 @@
         <a href="{{ url_for('download_file', filename=multi_excel_url) }}">Download Multi-Year Excel</a>
         {% endif %}
     </div>
+    {% endif %}
+
+    {% if active_tab == 'nosolar' %}
+    <div class="card">
+        <h2>Energy Use Without Solar</h2>
+
+        <!-- Yearly table -->
+        {% if nosolar_summary %}
+        <table>
+            <tr>
+                {% for k in nosolar_summary[0].keys() %}
+                <th>{{ k }}</th>
+                {% endfor %}
+            </tr>
+            {% for row in nosolar_summary %}
+            <tr>
+                {% for v in row.values() %}
+                <td>{{ v }}</td>
+                {% endfor %}
+            </tr>
+            {% endfor %}
+        </table>
+        {% else %}
+        <p>No consumption data available.</p>
+        {% endif %}
+    </div>
+
+        <!-- Costing summary card -->
+    {% if costing %}
+    <div class="card">
+        <h2>Costing Summary (No Solar)</h2>
+        <table>
+            <tbody>
+                {% for k, v in costing.items() %}
+                <tr>
+                    <th style="text-align:left; width:60%;">{{ k }}</th>
+                    <td style="text-align:right;">{{ v }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
     {% endif %}
 </body>
 </html>

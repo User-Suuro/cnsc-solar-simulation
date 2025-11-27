@@ -267,11 +267,108 @@ def simulate_annual(panel_kw, battery_kwh, inverter_kw, monthly_irr, monthly_con
     else:
         return df, df_deg, summary
 
+def calculate_costing(summary):
+    grid_price = 14.0
+
+    total_consumption = sum(y["Total Consumption (kWh)"] for y in summary)
+    total_unmet = sum(y["Unmet Consumption (kWh)"] for y in summary)
+    total_solar = total_consumption - total_unmet
+
+    solar_capex = form_data["panel_kw"] * 55000
+    battery_capex = form_data["battery_kwh"] * 18000
+    inverter_capex = form_data["inverter_kw"] * 12000
+
+    capex_total = solar_capex + battery_capex + inverter_capex
+    opex_annual = 0.015 * capex_total
+
+    baseline_cost = total_consumption * grid_price
+    solar_cost = (total_unmet * grid_price) + opex_annual
+
+    savings = baseline_cost - solar_cost
+
+    return {
+        "Total Consumption (kWh)": round(total_consumption, 2),
+        "Solar Generation (kWh)": round(total_solar, 2),
+        "Grid Use (kWh)": round(total_unmet, 2),
+        "Grid Price (PHP/kWh)": grid_price,
+        "Baseline Cost (PHP)": round(baseline_cost, 2),
+        "Solar CAPEX (PHP)": round(capex_total, 2),
+        "Annual OPEX (PHP)": round(opex_annual, 2),
+        "Cost with Solar (PHP)": round(solar_cost, 2),
+        "Savings (PHP)": round(savings, 2)
+    }
+
+
+def calculate_costing_nosolar(summary):
+    grid_price = 14.0
+
+    total_consumption = sum(y["Total Consumption (kWh)"] for y in summary)
+    baseline_cost = total_consumption * grid_price
+
+    return {
+        "Total Consumption (kWh)": round(total_consumption, 2),
+        "Grid Price (PHP/kWh)": grid_price,
+        "Total Grid Cost (PHP)": round(baseline_cost, 2)
+    }
 
 # ----------------- ROUTES -----------------
 
+
+@app.route("/nosolar")
+def nosolar():
+    try:
+        cons_df = read_simple_consumption(CONS_XLSX)
+    except Exception as e:
+        return f"Error reading consumption file: {e}"
+
+    years = sorted(y for y in cons_df.columns if isinstance(y, int))
+
+    summary = []
+    for y in years:
+        monthly = get_yearly_consumption(cons_df, y)
+        total = sum(monthly)
+
+        summary.append({
+            "Year": y,
+            "Total Consumption (kWh)": round(total, 2),
+            "Solar Contribution": 0,
+            "Unmet Consumption (kWh)": round(total, 2)
+        })
+
+    costing = calculate_costing_nosolar(summary)   
+    
+    return render_template(
+    "index.html",
+    active_tab="nosolar",
+    nosolar_summary=summary,
+    years=years,
+    panel_kw=DEFAULTS["panel_kw"],
+    battery_kwh=DEFAULTS["battery_kwh"],
+    inverter_kw=DEFAULTS["inverter_kw"],
+    year_start=years[0],
+    year_end=years[-1],
+    single_monthly_table=None,
+    multi_summary_table=None,
+    costing=costing,
+    health=None,
+    form_data={
+        "panel_kw": DEFAULTS["panel_kw"],
+        "battery_kwh": DEFAULTS["battery_kwh"],
+        "inverter_kw": DEFAULTS["inverter_kw"],
+        "year_start": years[0],
+        "year_end": years[-1]
+    }
+)
+
 @app.route("/", methods=["GET", "POST"])
 def index():
+    form_data = {
+        "panel_kw": request.form.get("panel_kw", DEFAULTS["panel_kw"]),
+        "battery_kwh": request.form.get("battery_kwh", DEFAULTS["battery_kwh"]),
+        "inverter_kw": request.form.get("inverter_kw", DEFAULTS["inverter_kw"]),
+        "year_start": request.form.get("year_start"),
+        "year_end": request.form.get("year_end")
+    }
     try:
         df_irr, hcol = safe_read_irr_csv(IRR_CSV)
     except Exception as e:
@@ -496,8 +593,14 @@ def index():
                 df_summary.to_excel(writer, index=False, sheet_name="Yearly Summary")
                 df_deg_summary.to_excel(writer, index=False, sheet_name="Degradation Summary")
 
+    if request.method == "GET" and request.args.get("keep") == "1":
+        pass
+
     return render_template(
         "index.html",
+        form_data=form_data,
+        nosolar_summary=None,
+        active_tab="solar",
         years=all_years,
         year_start=year_start,
         year_end=year_end,
