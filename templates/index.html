@@ -17,6 +17,7 @@
 
         <div class="card">
             <form method="POST">
+                 {% if active_tab != 'nosolar' %}
                 <div>
                     <label>Panel (kW)</label>
                     <input name="panel_kw" type="number" step="0.1" value="{{ form_data.panel_kw }}">
@@ -25,10 +26,22 @@
                     <label>Battery (kWh)</label>
                     <input name="battery_kwh" type="number" step="1" value="{{ form_data.battery_kwh }}">
                 </div>
+               
                 <div>
                     <label>Inverter (kW)</label>
                     <input name="inverter_kw" type="number" step="0.1" value="{{ form_data.inverter_kw }}">
                 </div>
+                
+                {% endif %}
+              
+                {% if active_tab == 'nosolar' %}
+                <div>
+                    <label>Peso per kWh:</label>
+                    <input type="number" step="0.01" name="peso_per_kwh" value="{{ form_data.peso_per_kwh or 0 }}">
+                   
+                </div>
+               
+                {% endif %}
                 <div>
                     <label>Start Year</label>
                     <select name="year_start">
@@ -51,7 +64,9 @@
                 </div>
             </form>
 
-            <p>System Health: <b>{{ health }}%</b></p>
+            {% if active_tab != 'nosolar' %}
+                <p>System Health: <b>{{ health }}%</b></p>
+            {% endif %}
         </div>
 
 
@@ -202,47 +217,54 @@
     {% endif %}
 
     {% if active_tab == 'nosolar' %}
-    <div class="card">
-        <h2>Energy Use Without Solar</h2>
+<div class="card">
+  
 
-        <!-- Yearly table -->
-        {% if nosolar_summary %}
-        <table>
-            <tr>
-                {% for k in nosolar_summary[0].keys() %}
-                <th>{{ k }}</th>
-                {% endfor %}
-            </tr>
-            {% for row in nosolar_summary %}
-            <tr>
-                {% for v in row.values() %}
-                <td>{{ v }}</td>
-                {% endfor %}
-            </tr>
-            {% endfor %}
-        </table>
-        {% else %}
-        <p>No consumption data available.</p>
-        {% endif %}
-    </div>
-
-        <!-- Costing summary card -->
     {% if costing %}
-    <div class="card">
-        <h2>Costing Summary (No Solar)</h2>
-        <table>
-            <tbody>
-                {% for k, v in costing.items() %}
+    <h3>No-Solar Costing</h3>
+    <table border="1" cellpadding="4" cellspacing="0">
+        <thead>
+            <tr>
+                <th>Year</th>
+                <th>Total kWh</th>
+                <th>Peso per kWh</th>
+                <th>Cost (₱)</th>
+                <th>Cost / Month (₱)</th>
+                <th>Cost / Day (₱)</th>
+            </tr>
+        </thead>
+        <tbody>
+         
+                {% for row in costing %}
                 <tr>
-                    <th style="text-align:left; width:60%;">{{ k }}</th>
-                    <td style="text-align:right;">{{ v }}</td>
+                    <td>{{ row.Year }}</td>
+                    <td>{{ row["Total kWh"] }}</td>
+                    <td>{{ row["Peso per kWh"] }}</td>
+                    <td>{{ row["Cost (₱)"] }}</td>
+                    <td>{{ row["Cost per Month (₱)"] }}</td>
+                    <td>{{ row["Cost per Day (₱)"] }}</td>
                 </tr>
                 {% endfor %}
-            </tbody>
-        </table>
-    </div>
+         
+        </tbody>
+    </table>
     {% endif %}
 
+   
+    {% if nos_bar_url %}
+    <h3>Yearly Consumption (Bar Chart)</h3>
+    <img src="{{ url_for('serve_output', filename=nos_bar_url) }}" class="plot">
     {% endif %}
+
+    {% if nos_pie_url %}
+    <h3>Cost Distribution (Pie Chart)</h3>
+    <img src="{{ url_for('serve_output', filename=nos_pie_url) }}" class="plot" width="400">
+    {% endif %}
+
+    {% if nos_excel_url %}
+    <a href="{{ url_for('download_file', filename=nos_excel_url) }}">Download Excel</a>
+    {% endif %}
+</div>
+{% endif %}
 </body>
 </html>

@@ -10,6 +10,7 @@ import io
 from pathlib import Path
 from sklearn.linear_model import LinearRegression
 
+
 app = Flask(__name__)
 
 app.secret_key = "replace_this_with_a_real_secret"
@@ -311,10 +312,67 @@ def calculate_costing_nosolar(summary):
         "Total Grid Cost (PHP)": round(baseline_cost, 2)
     }
 
-# ----------------- ROUTES -----------------
 
+def ensure_output_dir():
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-@app.route("/nosolar")
+def save_plot(filename):
+    plt.savefig(OUT_DIR / filename, bbox_inches="tight")
+
+def save_excel(filename, sheets: dict):
+    with pd.ExcelWriter(OUT_DIR / filename) as writer:
+        for name, df in sheets.items():
+            df.to_excel(writer, index=False, sheet_name=name)
+
+def nosolar_create_bar_chart(costing, filename="nosolar_bar.png"):
+    ensure_output_dir()
+    years = [row["Year"] for row in costing]
+    totals = [row["Total kWh"] for row in costing]
+
+    # Replace NaN or None with 0
+    totals = [0 if x is None or pd.isna(x) else x for x in totals]
+
+    plt.figure(figsize=(10, 5))
+    plt.bar(years, totals)
+    plt.title("No-Solar: Total Consumption per Year (kWh)")
+    plt.xlabel("Year")
+    plt.ylabel("kWh")
+    plt.tight_layout()
+    save_plot(filename)
+    plt.close()
+    return filename
+
+def nosolar_create_pie_chart(costing, filename="nosolar_pie.png"):
+    ensure_output_dir()
+    labels = [row["Year"] for row in costing]
+    values = [row["Cost (₱)"] for row in costing]
+
+    # Replace NaN with 0
+    values = [0 if x is None or pd.isna(x) else x for x in values]
+
+    # If all values are zero, provide placeholder
+    if sum(values) == 0:
+        labels = ["No Data"]
+        values = [1.0]
+
+    plt.figure(figsize=(6, 6))
+    plt.pie(values, labels=labels, autopct="%1.1f%%")
+    plt.title("No-Solar: Cost Distribution per Year")
+    plt.tight_layout()
+    save_plot(filename)
+    plt.close()
+    return filename
+
+def nosolar_export_excel(costing, summary, filename="nosolar_export.xlsx"):
+    ensure_output_dir()
+    df_cost = pd.DataFrame(costing)
+    df_summary = pd.DataFrame(summary)
+    save_excel(filename, {"Costing": df_cost, "Summary": df_summary})
+    return filename
+
+# ---------- ROUTE ----------
+
+@app.route("/nosolar", methods=["GET", "POST"])
 def nosolar():
     try:
         cons_df = read_simple_consumption(CONS_XLSX)
@@ -322,43 +380,64 @@ def nosolar():
         return f"Error reading consumption file: {e}"
 
     years = sorted(y for y in cons_df.columns if isinstance(y, int))
+    peso_per_kwh = float(request.form.get("peso_per_kwh", 14.0))
 
+    # Summary with panel/battery/inverter included
     summary = []
-    for y in years:
-        monthly = get_yearly_consumption(cons_df, y)
-        total = sum(monthly)
+    costing = []
 
+    for y in years:
+        monthly_kwh = get_yearly_consumption(cons_df, y)
+        total_kwh = sum(monthly_kwh)
+
+        # For consistency, include panel/inverter/battery but do not reduce consumption
         summary.append({
             "Year": y,
-            "Total Consumption (kWh)": round(total, 2),
+            "Total Consumption (kWh)": round(total_kwh, 2),
+            "Panel_kW": DEFAULTS["panel_kw"],
+            "Battery_kWh": DEFAULTS["battery_kwh"],
+            "Inverter_kW": DEFAULTS["inverter_kw"],
             "Solar Contribution": 0,
-            "Unmet Consumption (kWh)": round(total, 2)
+            "Unmet Consumption (kWh)": round(total_kwh, 2),
         })
 
-    costing = calculate_costing_nosolar(summary)   
-    
+        cost_php = total_kwh * peso_per_kwh
+        costing.append({
+            "Year": y,
+            "Total kWh": total_kwh,
+            "Panel_kW": DEFAULTS["panel_kw"],
+            "Battery_kWh": DEFAULTS["battery_kwh"],
+            "Inverter_kW": DEFAULTS["inverter_kw"],
+            "Peso per kWh": peso_per_kwh,
+            "Cost (₱)": round(cost_php, 2),
+            "Cost per Month (₱)": round(cost_php / 12, 2),
+            "Cost per Day (₱)": round(cost_php / 365, 2),
+        })
+
+    # Charts & Excel
+    bar_url = nosolar_create_bar_chart(costing)
+    pie_url = nosolar_create_pie_chart(costing)
+    excel_url = nosolar_export_excel(costing, summary)
+
     return render_template(
-    "index.html",
-    active_tab="nosolar",
-    nosolar_summary=summary,
-    years=years,
-    panel_kw=DEFAULTS["panel_kw"],
-    battery_kwh=DEFAULTS["battery_kwh"],
-    inverter_kw=DEFAULTS["inverter_kw"],
-    year_start=years[0],
-    year_end=years[-1],
-    single_monthly_table=None,
-    multi_summary_table=None,
-    costing=costing,
-    health=None,
-    form_data={
-        "panel_kw": DEFAULTS["panel_kw"],
-        "battery_kwh": DEFAULTS["battery_kwh"],
-        "inverter_kw": DEFAULTS["inverter_kw"],
-        "year_start": years[0],
-        "year_end": years[-1]
-    }
-)
+        "index.html",
+        active_tab="nosolar",
+        nosolar_summary=summary,
+        costing=costing,
+        years=years,
+        panel_kw=DEFAULTS["panel_kw"],
+        battery_kwh=DEFAULTS["battery_kwh"],
+        inverter_kw=DEFAULTS["inverter_kw"],
+        year_start=years[0],
+        year_end=years[-1],
+        single_monthly_table=None,
+        multi_summary_table=None,
+        health=None,
+        form_data={"peso_per_kwh": peso_per_kwh},
+        nos_bar_url=bar_url,
+        nos_pie_url=pie_url,
+        nos_excel_url=excel_url,
+    )
 
 @app.route("/", methods=["GET", "POST"])
 def index():
