@@ -173,8 +173,8 @@ def get_monthly_irr_for_year(df_irr: pd.DataFrame, hcol: str, year: int):
 
 
 # ------------------- UPDATED simulate_annual() WITH MONTHLY DEGRADATION -------------------
-def simulate_annual(panel_kw, battery_kwh, inverter_kw, monthly_irr, monthly_con, initial_health=100.0,
-                    return_deg=False):
+def simulate_annual(panel_kw, battery_kwh, inverter_kw, monthly_irr, monthly_con,
+                    peso_per_kwh, initial_health=100.0, return_deg=False):
     system_eff = 0.8
     battery_soc_max = battery_kwh * 0.8
     soc = battery_soc_max
@@ -231,10 +231,11 @@ def simulate_annual(panel_kw, battery_kwh, inverter_kw, monthly_irr, monthly_con
             "Consumption_kWh": round(consumption, 2),
             "Met_kWh": round(met, 2),
             "Unmet_kWh": round(unmet, 2),
-            "BatterySOC_end_kWh": round(soc, 2),
+            "UnmetCost_PHP": round(unmet * peso_per_kwh, 2),   # ⬅ NEW
+            "BatterySOC_end_kWh": soc,
             "Health_after_month": round(health, 3),
         })
-
+    
         # Add to degradation analysis table
         deg_rows.append({
             "Month": m,
@@ -260,7 +261,8 @@ def simulate_annual(panel_kw, battery_kwh, inverter_kw, monthly_irr, monthly_con
         # Add degradation summary
         "TotalSolar_100pct_kWh": round(float(df_deg["SolarGen_100pct_kWh"].sum()), 2),
         "TotalDegradationLoss_kWh": round(float(df_deg["DegradationLoss_kWh"].sum()), 2),
-        "InitialHealth": round(initial_health, 2),  # Track initial health for multi-year
+        "InitialHealth": round(initial_health, 2),  # Track initial health for multi-year,
+        "TotalUnmetCost_PHP": round(float(df["UnmetCost_PHP"].sum()), 2),
     }
 
     if return_deg:
@@ -483,6 +485,7 @@ def index():
             inverter_kw = float(request.form.get("inverter_kw", inverter_kw))
             year_start = int(request.form.get("year_start", year_start))
             year_end = int(request.form.get("year_end", year_end))
+            peso_per_kwh = float(request.form.get("peso_per_kwh", 14.0))
         except Exception:
             pass
 
@@ -497,7 +500,7 @@ def index():
 
             # CHANGED: Now receives 3 return values
             df_monthly, df_deg, summary = simulate_annual(
-                panel_kw, battery_kwh, inverter_kw, monthly_irr, monthly_con
+                panel_kw, battery_kwh, inverter_kw, monthly_irr, monthly_con, peso_per_kwh
             )
 
             bar_url = f"bar_{year}.png"
@@ -557,7 +560,7 @@ def index():
                     panel_kw, battery_kwh, inverter_kw,
                     monthly_irr, monthly_con,
                     initial_health=health,
-                    return_deg=True  # Request degradation data
+                    return_deg=True,
                 )
 
                 # Add to yearly summary
@@ -576,11 +579,11 @@ def index():
                     "Degradation_Loss_%": round((float(df_deg_year["DegradationLoss_kWh"].sum()) /
                                                  float(df_deg_year["SolarGen_100pct_kWh"].sum()) * 100)
                                                 if float(df_deg_year["SolarGen_100pct_kWh"].sum()) > 0 else 0, 2)
-                }
+                    }
                 deg_summary_rows.append(yearly_deg_summary)
 
                 # Update health for next year (use the final health from this year)
-                health = final_health
+                health = final_health   
 
             # Create main summary table
             df_summary = pd.DataFrame(summary_rows)

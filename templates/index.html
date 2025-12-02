@@ -33,15 +33,13 @@
                 </div>
                 
                 {% endif %}
-              
-                {% if active_tab == 'nosolar' %}
+                
                 <div>
                     <label>Peso per kWh:</label>
                     <input type="number" step="0.01" name="peso_per_kwh" value="{{ form_data.peso_per_kwh or 0 }}">
                    
                 </div>
                
-                {% endif %}
                 <div>
                     <label>Start Year</label>
                     <select name="year_start">
@@ -64,9 +62,7 @@
                 </div>
             </form>
 
-            {% if active_tab != 'nosolar' %}
-                <p>System Health: <b>{{ health }}%</b></p>
-            {% endif %}
+    
         </div>
 
 
@@ -75,17 +71,25 @@
     <div class="card">
         <h2>Monthly Data ({{ year_start }})</h2>
 
-        <table>
+        <table border="1" cellpadding="5" cellspacing="0">
             <tr>
-                {% for k in single_monthly_table[0].keys() %}
-                <th>{{ k }}</th>
-                {% endfor %}
+                <th>Month</th>
+                <th>SolarGen_kWh</th>
+                <th>Consumption_kWh</th>
+                <th>Met_kWh</th>
+                <th>Unmet_kWh</th>
+                <th>UnmetCost_PHP</th>
+                <th>Health_after_month</th>
             </tr>
             {% for row in single_monthly_table %}
             <tr>
-                {% for v in row.values() %}
-                <td>{{ v }}</td>
-                {% endfor %}
+                <td>{{ row["Month"] }}</td>
+                <td>{{ row["SolarGen_kWh"] }}</td>
+                <td>{{ row["Consumption_kWh"] }}</td>
+                <td>{{ row["Met_kWh"] }}</td>
+                <td>{{ row["Unmet_kWh"] }}</td>
+                <td>{{ row["UnmetCost_PHP"] }}</td>
+                <td>{{ row["Health_after_month"] }}</td>
             </tr>
             {% endfor %}
         </table>
@@ -93,7 +97,7 @@
         <h3>Annual Summary</h3>
         <table>
             <tr>
-                <th>Total Solar (kWh)</th>
+                <th>Total Solar (kWh)</th>   
                 <th>Total Solar (100% Health)</th>
                 <th>Total Degradation Loss</th>
                 <th>Total Consumption (kWh)</th>
@@ -122,7 +126,7 @@
                 <th>SolarGen Actual kWh</th>
                 <th>Degradation Loss kWh</th>
                 <th>Health (%)</th>
-            </tr>
+            </tr>           
             {% for row in single_deg_table %}
             <tr>
                 <td>{{ row.Month }}</td>
@@ -133,6 +137,11 @@
             </tr>
             {% endfor %}
         </table>
+
+        {% if active_tab != 'nosolar' %}
+                <p>System Health: <b>{{ health }}%</b></p>
+        {% endif %}
+
         {% endif %}
 
         {% if bar_url %}
